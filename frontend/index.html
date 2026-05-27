@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kairos AI | Premium Resume Analyzer & Career Architect</title>
+  <meta name="description" content="Evaluate, score, and optimize your resume for ATS tracking systems using high-fidelity local NLP extraction and optional Gemini/OpenAI integration.">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- PDF.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  
+  <!-- Mammoth.js CDN (DOCX Parser) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- FIXED DECORATIVE GRADIENTS -->
+  <div class="bg-gradient-shapes"></div>
+
+  <!-- APP HEADER -->
+  <header>
+    <div class="logo-container">
+      <div class="logo-icon">K</div>
+      <div class="logo-text">KAIROS <span style="font-weight: 300;">AI</span></div>
+      <span class="logo-badge">INTELLIGENCE</span>
+    </div>
+    
+    <div class="header-actions">
+      <!-- Active Parser Indicator -->
+      <div id="apiStatusBadge" class="api-badge">
+        <i data-lucide="cpu"></i> Local Analysis
+      </div>
+      
+      <!-- API settings button -->
+      <button class="btn" id="apiKeyBtn">
+        <i data-lucide="settings"></i> Configure AI Key
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <main>
+    
+    <!-- PHASE 1: INPUT CONTROLS -->
+    <section class="input-section">
+      <!-- Resume Upload Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <i data-lucide="file-text"></i>
+            Upload Resume
+          </h2>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">PDF, DOCX, TXT</span>
+        </div>
+
+        <div class="dropzone" id="dropzone">
+          <div class="scanner-bar"></div>
+          <div class="dropzone-icon">
+            <i data-lucide="upload-cloud" style="width: 48px; height: 48px;"></i>
+          </div>
+          <div class="dropzone-text">
+            <h3>Drag & drop your resume here</h3>
+            <p>or click to browse local files</p>
+          </div>
+          <input type="file" id="fileInput" style="display: none;" accept=".pdf,.docx,.txt">
+        </div>
+
+        <!-- Sample Resume Quick Tester -->
+        <div style="margin-top: 1.5rem;">
+          <h4 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase;">
+            Or Try A Demo Resume
+          </h4>
+          <div class="sample-load-container">
+            <button class="btn" onclick="loadSampleResume('software_engineer')">
+              <i data-lucide="terminal"></i> Software Engineer
+            </button>
+            <button class="btn" onclick="loadSampleResume('data_scientist')">
+              <i data-lucide="bar-chart-2"></i> Data Scientist
+            </button>
+            <button class="btn" onclick="loadSampleResume('product_manager')">
+              <i data-lucide="briefcase"></i> Product Manager
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Target Selection Panel -->
+      <div class="panel" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div class="panel-header">
+            <h2 class="panel-title">
+              <i data-lucide="target"></i>
+              Target Role Alignment
+            </h2>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.5;">
+            Choose your target career path. Our parsing heuristics compare your skills against modern industry profiles to calculate accurate match indexes and highlight skill gaps.
+          </p>
+
+          <div class="form-group">
+            <label for="selectRole">Target Job Title</label>
+            <select id="selectRole" class="form-control">
+              <!-- Dynamically populated from JS -->
+            </select>
+          </div>
+        </div>
+
+        <div style="background: var(--gradient-glow); border: 1px solid rgba(0, 242, 254, 0.1); border-radius: 10px; padding: 1rem; margin-top: 1rem;">
+          <h4 style="font-size: 0.9rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.25rem;">
+            <i data-lucide="shield-check" style="width: 16px; height: 16px;"></i> Local-First Privacy
+          </h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+            All document text extraction and scoring checks are executed locally in your browser. Your professional data is never sent to any external server unless you configure an AI key.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PHASE 2: RESULTS DASHBOARD (HIDDEN UNTIL LOADED) -->
+    <section id="analysisResults" class="results-hidden" style="display: flex; flex-direction: column; gap: 2rem; animation: fadeIn 0.5s ease;">
+      
+      <!-- UPPER STATS BAR -->
+      <div class="dashboard-grid">
+        
+        <!-- Score Dial Panel -->
+        <div class="panel score-card">
+          <h3 style="color: var(--text-muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem;">
+            Overall ATS Match Score
+          </h3>
+          
+          <!-- Circular Progress Indicator -->
+          <div class="radial-progress" id="overallScoreDial" style="--progress-val: 0;">
+            <div class="radial-progress-inner">
+              <span id="overallScoreNum">0</span>
+              <span>/ 100</span>
+            </div>
+          </div>
+          
+          <div class="score-rating" id="scoreRating">Determining...</div>
+          <p class="score-desc" id="scoreRatingText"></p>
+        </div>
+
+        <!-- Breakdown & Info Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2 class="panel-title">
+              <i data-lucide="bar-chart"></i>
+              Optimisation Score Breakdown
+            </h2>
+            <button class="btn btn-primary" onclick="downloadAnalysisPDF()">
+              <i data-lucide="download"></i> Download Report
+            </button>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-card">
+              <div class="meta-card-label">Word Count</div>
+              <div class="meta-card-value" id="metaWordCount">0</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-card-label">Email Detected</div>
+              <div class="meta-card-value" id="metaEmail">N/A</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-card-label">Phone Detected</div>
+              <div class="meta-card-value" id="metaPhone">N/A</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-card-label">Social Portfolio</div>
+              <div class="meta-card-value" id="metaSocial">N/A</div>
+            </div>
+          </div>
+
+          <!-- Progress row breakdowns -->
+          <div class="score-breakdown">
+            <!-- Row 1: Skills -->
+            <div class="breakdown-row">
+              <div class="breakdown-info">
+                <span>Skill Alignment Match</span>
+                <span id="skillsBarVal">0/30</span>
+              </div>
+              <div class="breakdown-bar-bg">
+                <div class="breakdown-bar-fill" id="skillsBar"></div>
+              </div>
+            </div>
+
+            <!-- Row 2: Action Verbs -->
+            <div class="breakdown-row">
+              <div class="breakdown-info">
+                <span>Action Verb Diversity</span>
+                <span id="verbsBarVal">0/20</span>
+              </div>
+              <div class="breakdown-bar-bg">
+                <div class="breakdown-bar-fill" id="verbsBar"></div>
+              </div>
+            </div>
+
+            <!-- Row 3: Structure -->
+            <div class="breakdown-row">
+              <div class="breakdown-info">
+                <span>ATS Section Structuring</span>
+                <span id="structureBarVal">0/20</span>
+              </div>
+              <div class="breakdown-bar-bg">
+                <div class="breakdown-bar-fill" id="structureBar"></div>
+              </div>
+            </div>
+
+            <!-- Row 4: Metrics -->
+            <div class="breakdown-row">
+              <div class="breakdown-info">
+                <span>Quantifiable Achievement Metrics</span>
+                <span id="metricsBarVal">0/20</span>
+              </div>
+              <div class="breakdown-bar-bg">
+                <div class="breakdown-bar-fill" id="metricsBar"></div>
+              </div>
+            </div>
+
+            <!-- Row 5: Completeness -->
+            <div class="breakdown-row">
+              <div class="breakdown-info">
+                <span>Contact Info & Link Completeness</span>
+                <span id="completenessBarVal">0/10</span>
+              </div>
+              <div class="breakdown-bar-bg">
+                <div class="breakdown-bar-fill" id="completenessBar"></div>
+              </div>
+            </div>
+          </div>
+          
+          <p id="breakdownTextExplanation" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem; line-height: 1.4; border-top: 1px solid var(--border-color); padding-top: 0.75rem;"></p>
+        </div>
+      </div>
+
+      <!-- MAIN TABS FOR DETAILED SECTIONS -->
+      <div class="panel">
+        <div class="tabs-container">
+          <button class="tab-btn active" onclick="switchTab('tabSkills', event)">
+            <i data-lucide="tag"></i> Skills & Gap Analyzer
+          </button>
+          <button class="tab-btn" onclick="switchTab('tabCareer', event)">
+            <i data-lucide="git-branch"></i> Career Architecture
+          </button>
+          <button class="tab-btn" onclick="switchTab('tabTips', event)">
+            <i data-lucide="lightbulb"></i> Improvement Tips
+          </button>
+          <button class="tab-btn" onclick="switchTab('tabSource', event)">
+            <i data-lucide="eye"></i> Extracted Text
+          </button>
+        </div>
+
+        <!-- TAB 1: SKILLS ANALYSIS -->
+        <div id="tabSkills" class="tab-content active">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <div>
+              <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem;">Extracted Core Skills</h3>
+              
+              <div class="skills-group">
+                <div class="skills-group-title"><i data-lucide="check"></i> Technical Skills</div>
+                <div class="badges-container" id="extractedTechSkills"></div>
+              </div>
+
+              <div class="skills-group">
+                <div class="skills-group-title"><i data-lucide="smile"></i> Soft Skills</div>
+                <div class="badges-container" id="extractedSoftSkills"></div>
+              </div>
+
+              <div class="skills-group">
+                <div class="skills-group-title"><i data-lucide="globe"></i> Domain & Methodologies</div>
+                <div class="badges-container" id="extractedDomainSkills"></div>
+              </div>
+            </div>
+
+            <div style="border-left: 1px solid var(--border-color); padding-left: 2rem;">
+              <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                Missing Skills (ATS Gap Alert)
+                <span class="badge badge-warning" style="font-size: 0.65rem; border: none;">Action Required</span>
+              </h3>
+              <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1rem;">
+                These essential industry competencies were not detected in your resume, but are typical requirements for a <strong>target role</strong>.
+              </p>
+              <div class="badges-container" id="missingSkillsBox" style="margin-bottom: 2rem;"></div>
+
+              <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 1.25rem;">
+                <h4 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+                  <i data-lucide="search" style="width: 16px; height: 16px; color: var(--accent-cyan)"></i> Custom Skill Checker
+                </h4>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+                  Query any custom tech skill to check if the current resume text lists it.
+                </p>
+                <div class="skill-checker">
+                  <input type="text" id="skillSearchInput" class="form-control" placeholder="e.g. AWS, Docker, Kubernetes" style="padding: 0.5rem 0.75rem;">
+                  <button class="btn btn-primary" onclick="checkIndividualSkill()">Check</button>
+                </div>
+                <div id="skillSearchResult" class="badge results-hidden" style="margin-top: 1rem; width: 100%; display: block; text-align: center; padding: 0.6rem;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: CAREER PATH -->
+        <div id="tabCareer" class="tab-content">
+          <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 2rem;">
+            <div>
+              <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Suggested Career Growth Roadmap</h3>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">
+                Typical promotion sequence and expected professional milestones for this target discipline.
+              </p>
+              
+              <div class="timeline" id="careerTimeline">
+                <!-- Dynamically built timeline from JS -->
+              </div>
+            </div>
+
+            <div style="border-left: 1px solid var(--border-color); padding-left: 2rem;">
+              <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Alternative Role Transitions</h3>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">
+                Based on your current extracted core competency profile, you exhibit overlapping qualification criteria for these adjacent career fields.
+              </p>
+              
+              <div id="alternativeRoles" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Dynamically populated alternative roles from JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: IMPROVEMENT TIPS -->
+        <div id="tabTips" class="tab-content">
+          <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Actionable Phrasing Optimization</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">
+            Click checkpoints to review side-by-side phrasing optimizations to raise your ATS score rating.
+          </p>
+
+          <div class="tips-container" id="tipsAccordion">
+            <!-- Dynamic accordion panels here -->
+          </div>
+        </div>
+
+        <!-- TAB 4: ORIGINAL TEXT VIEW -->
+        <div id="tabSource" class="tab-content">
+          <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Parsed Resume Raw Content</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            This is the raw textual layer extracted by PDF.js / Mammoth.js from the uploaded file structure. This is what parser algorithms scan.
+          </p>
+          <div class="resume-preview-box" id="originalResumeText"></div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL: API KEY SETUP -->
+  <div class="modal-overlay" id="keyModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 class="modal-title">AI Engine Settings</h3>
+        <button class="btn" id="closeModalBtn" style="border: none; background: none; padding: 0.25rem;"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.45;">
+          For deeper insights, configure your AI keys. Your credentials are saved strictly to the browser's local sandbox storage (`localStorage`) and calls are sent direct to AI endpoints.
+        </p>
+
+        <div class="form-group">
+          <label for="engineSelect">Analysis Engine</label>
+          <select id="engineSelect" class="form-control">
+            <option value="local">Local Rule Engine (Standard Heuristic)</option>
+            <option value="gemini">Google Gemini AI (gemini-1.5-flash)</option>
+            <option value="openai">OpenAI Engine (gpt-3.5-turbo)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="geminiKeyInput">Google Gemini API Key</label>
+          <input type="password" id="geminiKeyInput" class="form-control" placeholder="AIzaSy...">
+        </div>
+
+        <div class="form-group">
+          <label for="openaiKeyInput">OpenAI API Key</label>
+          <input type="password" id="openaiKeyInput" class="form-control" placeholder="sk-proj-...">
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn" id="closeModalBtn" onclick="document.getElementById('keyModal').classList.remove('active')">Cancel</button>
+        <button class="btn btn-primary" id="saveKeysBtn">Save Configuration</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS ROOT -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Javascript Modules -->
+  <script src="dictionary.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
