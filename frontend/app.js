@@ -198,7 +198,7 @@ async function handleFile(file) {
       headers['X-Selected-Engine'] = state.selectedEngine;
 
       showToast("Sending document to Python backend analyzer...", "info");
-      const res = await fetch('/api/analyze', {
+      const res = await fetch('https://kairos-ai-1z9c.onrender.com', {
         method: 'POST',
         headers: headers,
         body: formData
